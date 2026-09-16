@@ -95,6 +95,11 @@ mvn clean package
 
 The jar lands in `target/TreeFall.jar`.
 
+## Support
+
+- **Discord:** [discord.gg/s35WCNBSE](https://discord.gg/s35WCNBSE)
+- **Issues:** [github.com/jitendra205saini/treefall/issues](https://github.com/jitendra205saini/treefall/issues)
+
 ## License
 
 [MIT](LICENSE) — use it, change it, ship it. Just keep the copyright notice.

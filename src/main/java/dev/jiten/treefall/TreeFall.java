@@ -68,9 +68,17 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
      * Mangroves stand on a tangle of roots, so without these the trunk is
      * cut off from the ground and breaking a root does nothing at all.
      */
-    private static final Set<Material> EXTRA_TRUNK = Set.of(
+    /**
+     * Blocks that hold a tree up but are NOT in {@link Tag#LOGS}.
+     *
+     * <p>Mangroves stand on a tangle of roots, and a huge mushroom stands on
+     * a stem - Minecraft counts neither as a log, so without these the trunk
+     * never connects to the ground and nothing happens at all.
+     */
+    private static final Set<Material> DEFAULT_EXTRA_TRUNK = Set.of(
             Material.MANGROVE_ROOTS,
-            Material.MUDDY_MANGROVE_ROOTS
+            Material.MUDDY_MANGROVE_ROOTS,
+            Material.MUSHROOM_STEM
     );
 
     /**
@@ -92,7 +100,10 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
             Material.BEE_NEST,
             Material.MOSS_CARPET,
             Material.PALE_MOSS_CARPET,
-            Material.MANGROVE_PROPAGULE
+            Material.MANGROVE_PROPAGULE,
+            // the cap of a huge mushroom - its equivalent of leaves
+            Material.BROWN_MUSHROOM_BLOCK,
+            Material.RED_MUSHROOM_BLOCK
     );
 
     private static final List<String> SUBCOMMANDS =
@@ -125,10 +136,13 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
     private boolean dropsToInventory;
     private boolean fallingBlocks;
     private double fallSpread;
-    private boolean mangroveRoots;
+    private Set<Material> extraTrunk = Set.of();
     private int maxLeaves;
     private int maxDistance;
     private int maxFallingBlocks;
+    private boolean requireBottomBlock;
+    private int leafReach;
+    private int decorationReach;
     private int delayTicks;
     private Set<Material> decorations = Set.of();
 
@@ -211,6 +225,9 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
         maxLeaves = c.getInt("max-leaves", 2000);
         maxDistance = c.getInt("max-distance", 12);
         maxFallingBlocks = c.getInt("max-falling-blocks", 200);
+        requireBottomBlock = c.getBoolean("require-bottom-block", true);
+        leafReach = c.getInt("leaf-reach", 5);
+        decorationReach = c.getInt("decoration-reach", 24);
         delayTicks = Math.max(0, c.getInt("delay-ticks", 0));
         replant = c.getBoolean("replant", true);
         damageTool = c.getBoolean("damage-tool", true);
@@ -218,7 +235,7 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
         dropsToInventory = c.getBoolean("drops-to-inventory", false);
         fallingBlocks = c.getBoolean("falling-blocks", true);
         fallSpread = c.getDouble("fall-spread", 1.0);
-        mangroveRoots = c.getBoolean("mangrove-roots", true);
+        extraTrunk = readMaterialSet("extra-trunk", DEFAULT_EXTRA_TRUNK);
 
         respectClaims = c.getBoolean("respect-claims", true);
         whenSneaking = c.getBoolean("when-sneaking", true);
@@ -247,26 +264,34 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
         msgCooldown = c.getString("messages.cooldown", "You must wait before felling another tree.");
         msgSaplingGuarded = c.getString("messages.sapling-guarded", "That sapling was just planted.");
 
-        if (!c.isSet("decorations")) {
-            decorations = DEFAULT_DECORATIONS;
-            getLogger().info("No 'decorations' list in config.yml - using defaults. "
-                    + "Delete the file and restart to see the full list.");
-        } else {
-            Set<Material> decor = new HashSet<>();
-            for (String name : c.getStringList("decorations")) {
-                Material material = Material.matchMaterial(name);
-                if (material == null) {
-                    getLogger().warning("Unknown block in 'decorations': " + name);
-                    continue;
-                }
-                decor.add(material);
-            }
-            decorations = decor;
-        }
+        decorations = readMaterialSet("decorations", DEFAULT_DECORATIONS);
 
         customDropsEnabled = c.getBoolean("custom-drops.enabled", true);
         readMaterialChances(c.getConfigurationSection("custom-drops.items"), customDrops);
         readMaterialChances(c.getConfigurationSection("custom-drops.tool-factors"), toolFactors);
+    }
+
+    /**
+     * Reads a list of block names. A config written before the key existed
+     * falls back to the built-in defaults - otherwise an older file would
+     * silently yield an empty set and the feature would quietly stop working.
+     */
+    private Set<Material> readMaterialSet(String path, Set<Material> fallback) {
+        if (!getConfig().isSet(path)) {
+            getLogger().info("No '" + path + "' list in config.yml - using defaults. "
+                    + "Delete the file and restart to see the full list.");
+            return fallback;
+        }
+        Set<Material> out = new HashSet<>();
+        for (String name : getConfig().getStringList(path)) {
+            Material material = Material.matchMaterial(name);
+            if (material == null) {
+                getLogger().warning("Unknown block in '" + path + "': " + name);
+                continue;
+            }
+            out.add(material);
+        }
+        return out;
     }
 
     private void readMaterialChances(ConfigurationSection section, Map<Material, Double> into) {
@@ -512,6 +537,11 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
         // whatever happens next, this block is no longer standing
         placedLogs.remove(origin);
 
+        // Only a log actually standing on the ground brings the tree down.
+        if (requireBottomBlock && !standsOnGround(origin)) {
+            return;
+        }
+
         Player player = event.getPlayer();
         if (!allowedHere(origin) || !allowedFor(player, origin.getType())) {
             return;
@@ -681,7 +711,9 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
                         Block next = current.getRelative(dx, dy, dz);
                         Material type = next.getType();
 
-                        if (Tag.LEAVES.isTagged(type)) {
+                        // Leaves, or whatever stands in for them - a huge
+                        // mushroom's cap is the same idea in a different shape.
+                        if (isFoliage(type)) {
                             if (countedLeaves.add(next)) {
                                 leaves++;
                             }
@@ -716,20 +748,21 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
      * would be left floating in mid air once the trunk went.
      */
     private List<Block> collectFoliage(List<Block> logs, Block origin) {
+        Set<Block> ours = new HashSet<>(logs);
+        ours.add(origin);
+
         List<Block> crown = new ArrayList<>();
-        Set<Block> seen = new HashSet<>();
+        Map<Block, Integer> steps = new HashMap<>();
         Deque<Block> queue = new ArrayDeque<>();
 
-        seen.add(origin);
-        queue.add(origin);
-        for (Block log : logs) {
-            if (seen.add(log)) {
-                queue.add(log);
-            }
+        for (Block log : ours) {
+            steps.put(log, 0);
+            queue.add(log);
         }
 
         while (!queue.isEmpty()) {
             Block current = queue.poll();
+            int step = steps.get(current) + 1;
 
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
@@ -737,23 +770,37 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
                         Block next = current.getRelative(dx, dy, dz);
                         Material type = next.getType();
 
-                        // Walk through the whole crown, including the parts we
-                        // will not break. Otherwise a vine hanging off a leaf
-                        // we are keeping could never be reached.
-                        if (!isFoliage(type) || !seen.add(next)) {
+                        if (!isFoliage(type) || steps.containsKey(next)) {
                             continue;
                         }
-                        // Leash it to the tree. Ground cover like moss carpet
-                        // is all one connected sheet in a mangrove swamp, so
-                        // without this the search would crawl off across the
-                        // whole biome and strip it bare.
                         if (!withinReach(next, origin)) {
                             continue;
                         }
-                        // leaves a player placed by hand are not ours to take
-                        if (next.getBlockData() instanceof Leaves leaf && leaf.isPersistent()) {
+
+                        boolean leaf = Tag.LEAVES.isTagged(type);
+                        if (leaf) {
+                            // A canopy sits a few blocks from its own trunk. In a
+                            // jungle the canopies touch, so without this cap the
+                            // search hops leaf to leaf into the next tree, and the
+                            // next, and strips the whole forest bare.
+                            if (step > leafReach) {
+                                continue;
+                            }
+                            // leaves a player placed by hand are not ours to take
+                            if (next.getBlockData() instanceof Leaves data && data.isPersistent()) {
+                                continue;
+                            }
+                            // If it is touching someone else's trunk, it is their
+                            // canopy, not ours - leave it standing.
+                            if (touchesForeignTrunk(next, ours)) {
+                                continue;
+                            }
+                        } else if (step > decorationReach) {
+                            // vines hang a long way down, so they get more room
                             continue;
                         }
+
+                        steps.put(next, step);
                         queue.add(next);
 
                         if (shouldHarvest(type)) {
@@ -767,6 +814,45 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
             }
         }
         return crown;
+    }
+
+    /**
+     * Whether this log is the one holding the tree up.
+     *
+     * <p>Checking only for "is there a log below" is not enough, and both ways
+     * it fails are easy to hit:
+     *
+     * <ul>
+     *   <li>Break the middle of a trunk, then the block above it. The second
+     *       block now has AIR below, so it would read as ground level.</li>
+     *   <li>A branch on a dark oak or jungle tree sits over air or leaves, so
+     *       every branch would read as ground level too.</li>
+     * </ul>
+     *
+     * <p>So the block underneath has to be real ground - not air, not more
+     * tree. Dirt, grass, mud, podzol, sand, even water for a mangrove.
+     */
+    private boolean standsOnGround(Block log) {
+        Material below = log.getRelative(0, -1, 0).getType();
+        return !below.isAir()
+                && !isTrunk(below)
+                && !Tag.LEAVES.isTagged(below)
+                && !decorations.contains(below);
+    }
+
+    /** True if this block is up against a trunk that is not part of the tree we felled. */
+    private boolean touchesForeignTrunk(Block block, Set<Block> ours) {
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    Block near = block.getRelative(dx, dy, dz);
+                    if (isTrunk(near.getType()) && !ours.contains(near)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------
@@ -798,11 +884,15 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
             trunkBase.add(log);
         }
 
-        Material saplingType = saplingFor(origin.getType());
-
         // Map the crown BEFORE the trunk goes, while the tree is still intact.
+        List<Block> foliage = collectFoliage(logs, origin);
+
+        // The crown has to be known first: a huge mushroom's stem does not say
+        // whether it was the red or the brown kind, only its cap does.
+        Material saplingType = saplingFor(origin.getType(), foliage);
+
         List<Block> order = new ArrayList<>(logs);
-        order.addAll(collectFoliage(logs, origin));
+        order.addAll(foliage);
 
         // Fresh budget per tree. Forgetting this reset would leave every tree
         // after the first one falling without any animation at all.
@@ -1016,7 +1106,7 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
 
     /** Logs, plus the odd non-log block that is still structurally a tree. */
     private boolean isTrunk(Material type) {
-        return Tag.LOGS.isTagged(type) || (mangroveRoots && EXTRA_TRUNK.contains(type));
+        return Tag.LOGS.isTagged(type) || extraTrunk.contains(type);
     }
 
     /** Leaves and anything growing on the tree - what the crown is made of. */
@@ -1055,7 +1145,20 @@ public final class TreeFall extends JavaPlugin implements Listener, TabCompleter
                 .replace("_roots", "");
     }
 
-    private Material saplingFor(Material log) {
+    private Material saplingFor(Material log, List<Block> crown) {
+        // Red and brown huge mushrooms grow on the SAME stem block, so the
+        // stem alone cannot say which one this was. The cap can.
+        if (log == Material.MUSHROOM_STEM) {
+            for (Block block : crown) {
+                if (block.getType() == Material.RED_MUSHROOM_BLOCK) {
+                    return Material.RED_MUSHROOM;
+                }
+                if (block.getType() == Material.BROWN_MUSHROOM_BLOCK) {
+                    return Material.BROWN_MUSHROOM;
+                }
+            }
+            return null; // a bare stem - no way to tell, so plant nothing
+        }
         String name = treeName(log);
         Material odd = ODD_SAPLINGS.get(name);
         if (odd != null) {

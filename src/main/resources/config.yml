@@ -28,6 +28,13 @@ max-blocks: 512
 # stricter about player-built log structures.
 min-leaves: 4
 
+# Only fell when the player breaks the block standing on
+# the ground. Cutting a branch, or the middle of a trunk,
+# then behaves exactly like vanilla - one block at a time.
+#
+# Set false if you want any log to bring the tree down.
+require-bottom-block: true
+
 # ---------------------- Look ------------------------
 
 # Topple the tree as falling block entities instead of
@@ -77,6 +84,23 @@ max-leaves: 2000
 # canopy - there is no good reason to raise it much.
 max-distance: 12
 
+# How many blocks out from OUR OWN logs a leaf may be
+# before we stop taking it.
+#
+# This is what keeps a felled tree from stripping its
+# neighbours. Jungle canopies touch each other, so without
+# this the search hops leaf to leaf into the next tree and
+# the next, and clears the whole forest.
+#
+# A leaf touching another tree's trunk is always left alone,
+# whatever this is set to.
+leaf-reach: 5
+
+# The same limit for vines and other decorations. They hang
+# well below the canopy, so they need much more room than
+# leaves do.
+decoration-reach: 24
+
 # Things that GROW ON a tree and should come down with it.
 # Without this they are left floating in mid air once the
 # trunk is gone - hanging jungle vines are the worst of it.
@@ -113,6 +137,9 @@ decorations:
   # mangrove swamp - propagules hang from the leaves, and
   # moss carpet sits on top of the roots
   - minecraft:mangrove_propagule
+  # the cap of a huge mushroom - its version of leaves
+  - minecraft:brown_mushroom_block
+  - minecraft:red_mushroom_block
   # --- ground covers: only safe because of max-distance ---
   - minecraft:moss_carpet
   - minecraft:pale_moss_carpet
@@ -130,11 +157,18 @@ replant: true
 # 0 disables it. Anyone with treefall.admin can still break them.
 sapling-guard-seconds: 0
 
-# Count mangrove roots as part of the tree.
-# Mangroves stand on a tangle of roots that are NOT in
-# Minecraft's log tag, so without this, breaking a root
-# does nothing and the trunk never connects to the ground.
-mangrove-roots: true
+# Blocks that hold a tree up but that Minecraft does NOT
+# count as logs. Without these the trunk never connects to
+# the ground and the tree simply will not fall.
+#
+#   mangrove roots - a mangrove stands on a tangle of them
+#   mushroom stem  - a huge mushroom has no log at all
+#
+# Add a block here if you find a "tree" that ignores you.
+extra-trunk:
+  - minecraft:mangrove_roots
+  - minecraft:muddy_mangrove_roots
+  - minecraft:mushroom_stem
 
 # Damage the axe for every log broken, not just the first.
 damage-tool: true

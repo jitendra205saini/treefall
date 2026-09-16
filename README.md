@@ -97,7 +97,7 @@ The jar lands in `target/TreeFall.jar`.
 
 ## Support
 
-- **Discord:** [discord.gg/s35WCNBSE](https://discord.gg/s35WCNBSE)
+- **Discord:** [discord.gg/9swybBY3CF](https://discord.gg/9swybBY3CF)
 - **Issues:** [github.com/jitendra205saini/treefall/issues](https://github.com/jitendra205saini/treefall/issues)
 
 ## License

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>dev.jiten</groupId>
+  <artifactId>TreeFall</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+  <name>TreeFall</name>
+  <description>Break one log, the whole tree falls and replants itself.</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Paper 26.3 runs on Java 25 -->
+    <maven.compiler.release>25</maven.compiler.release>
+  </properties>
+
+  <repositories>
+    <repository>
+      <id>papermc</id>
+      <url>https://repo.papermc.io/repository/maven-public/</url>
+    </repository>
+  </repositories>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.papermc.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <!--
+        Pinned to the exact build the server runs. 26.3 currently only has
+        alpha builds published - there is no -stable or -beta line yet.
+        To always take the newest 26.3 build instead, use: [26.3.build,)
+      -->
+      <version>26.3.build.5-alpha</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- produces target/TreeFall.jar instead of TreeFall-1.0.0.jar -->
+    <finalName>${project.name}</finalName>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+  </build>
+
+</project>

@@ -1,0 +1,38 @@
+name: TreeFall
+version: 1.0.0
+main: dev.jiten.treefall.TreeFall
+description: Break one log, the whole tree falls and replants itself.
+author: jiten
+
+# Paper's docs currently document valid values as 1.13 - 26.2. A server only
+# refuses an api-version HIGHER than its own, so 26.2 loads fine on 26.3.
+api-version: '26.2'
+
+commands:
+  treefall:
+    description: TreeFall commands
+    aliases: [tf]
+    usage: /treefall <reload|toggle|info|forcebreak|forcegrow>
+
+permissions:
+  treefall.use:
+    description: Allows a player to fell trees in one hit
+    default: true
+  treefall.use.*:
+    description: Allows felling every wood type when per-tree-permissions is on
+    default: true
+  treefall.admin:
+    description: Reload the config, and break guarded saplings
+    default: op
+  treefall.bypass.cooldown:
+    description: Allows felling without waiting for the cooldown
+    default: op
+  treefall.toggle.other:
+    description: Allows toggling TreeFall for another player
+    default: op
+  treefall.forcebreak:
+    description: Allows /treefall forcebreak
+    default: op
+  treefall.forcegrow:
+    description: Allows /treefall forcegrow
+    default: op

@@ -1,0 +1,253 @@
+# ===================== TreeFall =====================
+# Break the bottom log of a tree and the whole thing
+# topples over, then a sapling is replanted for you.
+#
+# Nothing here names a wood type. TreeFall reads
+# Minecraft's own block tags, so every tree Mojang adds
+# works on day one with no update and no new config.
+# ====================================================
+
+# Players must hold an axe for the tree to fall.
+# Set false to allow any item (including bare hands).
+require-axe: true
+
+# If set, the tool must carry this text in its lore for
+# TreeFall to trigger. Leave empty for no requirement.
+# Handy for a special "Lumberjack Axe" item.
+required-lore: ''
+
+# Safety cap on how many logs a single tree may contain.
+# Stops a giant custom build from being eaten in one hit.
+# Anything bigger than this is treated as a build, not a
+# tree, and is left alone entirely. Mangrove root tangles
+# are big, so this needs headroom.
+max-blocks: 512
+
+# How many leaves must be touching the logs for it to
+# count as a real tree. Raising this makes the plugin
+# stricter about player-built log structures.
+min-leaves: 4
+
+# ---------------------- Look ------------------------
+
+# Topple the tree as falling block entities instead of
+# just deleting the logs. This is the nice looking one.
+falling-blocks: true
+
+# How hard the tree leans over as it falls.
+# 0.5 = drops almost straight down
+# 1.0 = natural lean (default)
+# 2.0 = dramatic, logs fly outward
+fall-spread: 1.0
+
+# How many blocks of one tree actually become falling
+# entities. Everything past this still breaks and still
+# drops - it just vanishes instead of tumbling.
+# This is the setting that controls lag, NOT max-leaves.
+# 200 already looks dramatic.
+max-falling-blocks: 200
+
+# Ticks to wait between breaking each block, so the tree
+# comes apart piece by piece instead of all at once.
+# 0 = instant, and instant is recommended: the falling
+# block animation already gives you the effect, and this
+# path has to survive the world changing mid-fall.
+# Try 1 or 2 if you want a slow, deliberate chop.
+delay-ticks: 0
+
+# --------------------- The crown --------------------
+
+# Bring the leaves down with the tree instead of leaving
+# the crown hanging in the air to decay on its own.
+# This is also where loose saplings, sticks and apples
+# come from - they are the normal vanilla leaf drops.
+break-leaves: true
+
+# Safety cap on how many crown blocks one tree may drop.
+# A giant jungle canopy runs well past a thousand blocks,
+# so this is deliberately generous - set it too low and the
+# middle of a big tree falls while the outer leaves hang on.
+# Entity count is handled separately, by max-falling-blocks.
+max-leaves: 2000
+
+# How far from the trunk the crown search may wander, in
+# blocks. This is what stops connected ground cover (moss
+# carpet especially) from dragging the search across the
+# whole biome. 12 comfortably covers even a giant jungle
+# canopy - there is no good reason to raise it much.
+max-distance: 12
+
+# Things that GROW ON a tree and should come down with it.
+# Without this they are left floating in mid air once the
+# trunk is gone - hanging jungle vines are the worst of it.
+#
+# These always come down, even with break-leaves off, since
+# a vine hanging from nothing just looks broken.
+#
+# Add any block you find still floating - no code needed.
+#
+# CARE with the ground covers at the bottom of this list.
+# Moss carpet is one connected sheet across a whole mangrove
+# swamp, so it is only safe because of 'max-distance' above.
+decorations:
+  # jungle
+  - minecraft:vine
+  - minecraft:cocoa
+  # 26.3 dappled forest - grows on poplar trunks
+  - minecraft:shelf_mushroom
+  # pale garden
+  - minecraft:pale_hanging_moss
+  # anywhere
+  - minecraft:glow_lichen
+  # nether fungi - these ARE the crown of a huge fungus,
+  # and Minecraft does not count them as leaves
+  - minecraft:nether_wart_block
+  - minecraft:warped_wart_block
+  - minecraft:shroomlight
+  - minecraft:weeping_vines
+  - minecraft:twisting_vines
+  # WARNING: without Silk Touch a bee nest is destroyed and
+  # the bees come out angry. Remove this line to leave nests
+  # standing instead.
+  - minecraft:bee_nest
+  # mangrove swamp - propagules hang from the leaves, and
+  # moss carpet sits on top of the roots
+  - minecraft:mangrove_propagule
+  # --- ground covers: only safe because of max-distance ---
+  - minecraft:moss_carpet
+  - minecraft:pale_moss_carpet
+
+# --------------------- Behaviour --------------------
+
+# Plant a sapling where the trunk stood.
+# A 2x2 tree (dark oak, pale oak, giant spruce/jungle) gets
+# all four saplings back - dark oak and pale oak cannot
+# regrow from just one.
+replant: true
+
+# Protect a freshly replanted sapling for this many seconds
+# so it does not get trampled or broken straight away.
+# 0 disables it. Anyone with treefall.admin can still break them.
+sapling-guard-seconds: 0
+
+# Count mangrove roots as part of the tree.
+# Mangroves stand on a tangle of roots that are NOT in
+# Minecraft's log tag, so without this, breaking a root
+# does nothing and the trunk never connects to the ground.
+mangrove-roots: true
+
+# Damage the axe for every log broken, not just the first.
+damage-tool: true
+
+# Stop felling before the axe actually breaks.
+protect-tool: true
+
+# Put the drops straight into the player's inventory
+# instead of on the ground.
+drops-to-inventory: false
+
+# Count felled blocks towards the player's Minecraft
+# statistics, as if they had mined each one by hand.
+count-statistics: false
+
+# ------------------- Anti-farm ----------------------
+
+# Remember logs that players place by hand, and refuse to
+# fell any tree containing one.
+#
+# Otherwise anyone can stack logs into a fake tree, break
+# the bottom block and collect the lot for free. TreeAssist
+# needs CoreProtect or Prism for this; TreeFall keeps its
+# own record, so there is no dependency and no lookup cost.
+track-placed-logs: true
+
+# How many placed logs to remember before the oldest are
+# forgotten. Each one costs about 8 bytes.
+track-placed-logs-limit: 100000
+
+# ------------------- Protection ---------------------
+
+# Ask the rest of the server before breaking each block.
+#
+# Only the first block a player hits goes through the normal
+# event chain. The rest are removed directly, which sails
+# straight past GriefPrevention, WorldGuard, Towny and every
+# other protection plugin - so a tree leaning into someone
+# else's claim would be chopped out of it.
+#
+# With this on, every block is checked the same way a real
+# swing would be. Slightly more work per tree, and worth it
+# on any server with claims.
+respect-claims: true
+
+# --------------- Who, where and when ----------------
+
+# Fell trees while the player is sneaking / not sneaking.
+# Set one to false to give players a way to break a single
+# log normally - sneaking is the usual choice.
+when-sneaking: true
+when-not-sneaking: true
+
+# Seconds a player must wait between trees. 0 disables it.
+# Bypassed by the treefall.bypass.cooldown permission.
+cooldown-seconds: 0
+
+# Require a permission per wood type on top of treefall.use,
+# for example treefall.use.oak or treefall.use.poplar.
+# The name is taken from the log itself, so new wood types
+# work without editing anything.
+per-tree-permissions: false
+
+# Remember /treefall toggle across restarts (toggles.yml).
+remember-toggle: true
+
+# Worlds TreeFall may work in. Leave 'enabled-worlds' empty
+# to allow every world. 'disabled-worlds' always wins.
+enabled-worlds: []
+disabled-worlds: []
+
+# ----------------- Force commands -------------------
+
+# /treefall forcebreak [radius] - fell every tree in range
+# /treefall forcegrow  [radius] - bone-meal every sapling
+force-commands:
+  default-radius: 10
+  max-radius: 30
+
+# ------------------- Saving data --------------------
+
+# Minutes between saves of toggles.yml and placed-logs.yml.
+# These are also written on a clean shutdown, but a crash or
+# a killed process never gets that far - without a periodic
+# save, everything tracked since boot is lost. 0 disables it.
+save-interval-minutes: 5
+
+# ------------------- Custom drops -------------------
+
+# Extra loot from leaves, on top of the normal vanilla
+# drops. Rolled once per leaf block, so keep the chances
+# small - a big canopy is hundreds of rolls.
+custom-drops:
+  enabled: true
+
+  # chance per leaf block, 1.0 would be every single one
+  items:
+    minecraft:apple: 0.002
+    minecraft:golden_apple: 0.00005
+
+  # multiplier on those chances, by the axe being used
+  tool-factors:
+    minecraft:netherite_axe: 1.0
+    minecraft:diamond_axe: 1.0
+    minecraft:golden_axe: 0.75
+    minecraft:iron_axe: 0.5
+    minecraft:stone_axe: 0.25
+    minecraft:wooden_axe: 0.1
+
+# --------------------- Messages ---------------------
+
+messages:
+  toggle-on: 'TreeFall is now ON for you.'
+  toggle-off: 'TreeFall is now OFF for you.'
+  cooldown: 'You must wait before felling another tree.'
+  sapling-guarded: 'That sapling was just planted.'

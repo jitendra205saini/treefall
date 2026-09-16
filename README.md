@@ -82,4 +82,4 @@ The jar lands in `target/TreeFall.jar`.
 
 ## License
 
-Not yet chosen.
+[MIT](LICENSE) — use it, change it, ship it. Just keep the copyright notice.
